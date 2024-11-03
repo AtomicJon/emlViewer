@@ -2,7 +2,11 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer } from 'electron';
-import { GetAttachmentUrlArgs, OpenDirResponse } from './types/email.types';
+import {
+    Email,
+    GetAttachmentUrlArgs,
+    OpenDirResponse,
+} from './types/email.types';
 
 contextBridge.exposeInMainWorld('electronAPI', {
     openDir: async (): Promise<OpenDirResponse | undefined> => {
@@ -12,5 +16,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         args: GetAttachmentUrlArgs,
     ): Promise<string | undefined> => {
         return ipcRenderer.invoke('getAttachmentUrl', args);
+    },
+    onEmailLoaded: (callback: (email: Email) => void) => {
+        ipcRenderer.on('email:loaded', (_event, email) => {
+            callback(email);
+        });
     },
 });

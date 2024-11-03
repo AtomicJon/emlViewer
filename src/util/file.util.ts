@@ -41,14 +41,16 @@ export const getDir = async () => {
  * @param dir The directory to load emails from.
  * @returns A promise that resolves to an array of Email objects.
  */
-export const loadEmails = async (dir: string) => {
+export const loadEmails = async (
+    dir: string,
+    onEmailLoaded: (email: Email) => void,
+) => {
     const files = await readdir(dir);
-    const emails: Email[] = [];
     for (const filename of files) {
         const contents = await readFile(path.resolve(dir, filename), 'utf8');
         try {
             const parsed = await simpleParser(contents);
-            emails.push({
+            onEmailLoaded({
                 filename,
                 from: emailAddressToString(parsed.from),
                 to: emailAddressToString(parsed.to),
@@ -68,8 +70,8 @@ export const loadEmails = async (dir: string) => {
         } catch (error) {
             console.error(error);
         }
+        await new Promise((resolve) => setTimeout(resolve, 50));
     }
-    return emails;
 };
 
 /**
@@ -98,12 +100,14 @@ export const getAttachmentUrl = async ({
  * Opens a directory and loads emails from it.
  * @returns A promise that resolves to an array of Email objects, or undefined if the dialog was canceled.
  */
-export const openDir = async (): Promise<OpenDirResponse | undefined> => {
+export const openDir = async (
+    onEmailLoaded: (email: Email) => void,
+): Promise<OpenDirResponse | undefined> => {
     const dir = await getDir();
     if (!dir) {
         return undefined;
     }
 
-    const emails = await loadEmails(dir);
-    return { dir, emails };
+    loadEmails(dir, onEmailLoaded);
+    return { dir };
 };

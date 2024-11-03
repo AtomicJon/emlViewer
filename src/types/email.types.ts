@@ -1,6 +1,5 @@
 export type OpenDirResponse = {
     dir: string;
-    emails: Email[];
 };
 
 export type GetAttachmentUrlArgs = {

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Email } from '../types/email.types';
 import styled from '@emotion/styled';
-import { css } from '@emotion/react';
+import { useCallback, useEffect, useState } from 'react';
+import Button from '../components/Button';
+import EmailList from '../components/EmailList';
+import { Email } from '../types/email.types';
 
 const EmailClient = styled.div`
     display: flex;
@@ -9,87 +10,6 @@ const EmailClient = styled.div`
     font-family: Arial, sans-serif;
     color: #333;
     background-color: #f5f5f5;
-`;
-
-const EmailList = styled.div`
-    flex-shrink: 0;
-    width: 350px;
-    background-color: #fff;
-    border-right: 1px solid #e0e0e0;
-    overflow-y: auto;
-`;
-
-const EmailListHeader = styled.div`
-    padding: 20px;
-    background-color: #f0f0f0;
-    border-bottom: 1px solid #e0e0e0;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 8px;
-    overflow: hidden;
-`;
-
-const EmailListHeaderSection = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-`;
-
-const EmailListHeaderPath = styled.div`
-    font-size: 0.9em;
-    color: #666;
-    overflow: hidden;
-    text-overflow: ellipsis;
-`;
-
-const EmailListTitle = styled.h2`
-    margin: 0;
-`;
-
-const EmailItem = styled.div<{ selected: boolean; hasTo?: boolean }>`
-    padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    background-color: ${(props) =>
-        props.selected ? '#e8f0fe' : 'transparent'};
-    ${({ hasTo }) =>
-        !hasTo &&
-        css`
-            opacity: 0.5;
-        `}
-
-    &:hover {
-        background-color: #f9f9f9;
-    }
-`;
-
-const EmailSubject = styled.div`
-    font-weight: bold;
-    margin-bottom: 5px;
-`;
-
-const EmailFrom = styled.div`
-    font-size: 0.9em;
-    color: #666;
-`;
-
-const EmailTo = styled.div`
-    font-size: 0.9em;
-    color: #666;
-`;
-
-const EmailDate = styled.div`
-    font-size: 0.8em;
-    color: #999;
-    margin-top: 5px;
-`;
-
-const EmailFilename = styled.div`
-    font-size: 0.8em;
-    color: #999;
-    font-style: italic;
 `;
 
 const EmailDetails = styled.div`
@@ -191,20 +111,6 @@ const JsonViewContent = styled.pre`
 
 const ChevronDown = () => <span>&#9660;</span>;
 const ChevronUp = () => <span>&#9650;</span>;
-const Folder = () => <span>📁</span>;
-
-const Button = styled.button`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #fff;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    background-color: #1a73e8;
-    font-size: 1em;
-`;
 
 const App = () => {
     const [selectedDir, setSelectedDir] = useState<string | undefined>();
@@ -222,10 +128,21 @@ const App = () => {
         setSelectedAttachmentName(undefined);
     }, [selectedEmail]);
 
+    // Listen for email messages from the main process
+    useEffect(() => {
+        const onEmailLoaded = (email: Email) => {
+            setEmails((currentEmails) => [...currentEmails, email]);
+        };
+
+        window.electronAPI.onEmailLoaded(onEmailLoaded);
+        // TODO: Add listener cleanup
+    }, []);
+
     const _onOpen = useCallback(async () => {
-        const { dir, emails } = (await window.electronAPI.openDir()) ?? {};
+        setEmails([]);
+        const { dir } = (await window.electronAPI.openDir()) ?? {};
         setSelectedDir(dir);
-        setEmails(emails ?? []);
+        console.log('Dir opened', dir);
     }, []);
 
     const _onOpenAttachment = useCallback(
@@ -244,46 +161,23 @@ const App = () => {
         [selectedDir],
     );
 
+    const _onEmailSelected = useCallback((email: Email) => {
+        setSelectedEmail(email);
+    }, []);
+
     const _onToggleJsonView = useCallback(() => {
         setIsJsonViewShown((currentIsJsonViewShown) => !currentIsJsonViewShown);
     }, []);
 
     return (
         <EmailClient>
-            <EmailList>
-                <EmailListHeader>
-                    <EmailListHeaderSection>
-                        <EmailListTitle>Emails</EmailListTitle>
-                        <Button onClick={_onOpen}>
-                            <Folder />
-                            Open...
-                        </Button>
-                    </EmailListHeaderSection>
-                    <EmailListHeaderPath title={selectedDir}>
-                        {selectedDir || 'No directory selected'}
-                    </EmailListHeaderPath>
-                </EmailListHeader>
-                {emails.map((email, index) => (
-                    <EmailItem
-                        key={index}
-                        hasTo={!!email.to}
-                        selected={selectedEmail === email}
-                        onClick={() => setSelectedEmail(email)}
-                    >
-                        <EmailSubject>
-                            {email.subject || 'No Subject'}
-                        </EmailSubject>
-                        <EmailFrom>
-                            From: {email.from || 'Unknown Sender'}
-                        </EmailFrom>
-                        <EmailTo>To: {email.to || 'Unknown Recipient'}</EmailTo>
-                        <EmailDate>
-                            {email.date?.toLocaleDateString()}
-                        </EmailDate>
-                        <EmailFilename>{email.filename}</EmailFilename>
-                    </EmailItem>
-                ))}
-            </EmailList>
+            <EmailList
+                emails={emails}
+                selectedDir={selectedDir}
+                selectedEmail={selectedEmail}
+                onOpen={_onOpen}
+                onEmailSelected={_onEmailSelected}
+            />
             <EmailDetails>
                 {selectedEmail ? (
                     <>
